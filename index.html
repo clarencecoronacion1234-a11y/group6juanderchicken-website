@@ -15,6 +15,10 @@
     button:hover { background: #b71c1c; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
     th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: center; }
+    input[type='number'] { width: 60px; text-align: center; padding: 5px; }
+    .remove-btn { background: #ff4d4d; border: none; color: white; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+    .remove-btn:hover { background: #c62828; }
+    .total { text-align: right; font-weight: bold; margin-top: 10px; }
     .success { display: none; background: #4caf50; color: white; padding: 10px; text-align: center; border-radius: 5px; margin-top: 15px; }
   </style>
 </head>
@@ -27,10 +31,11 @@
     <h2>🛒 Your Cart</h2>
     <table id="cartTable">
       <thead>
-        <tr><th>Item</th><th>Qty</th><th>Price</th></tr>
+        <tr><th>Item</th><th>Qty</th><th>Price</th><th>Remove</th></tr>
       </thead>
       <tbody></tbody>
     </table>
+    <div class="total" id="totalDisplay">Total: ₱0</div>
 
     <h2>📦 Delivery Info</h2>
     <input type="text" id="name" placeholder="Full Name" style="width:100%;margin:5px 0;padding:8px;"><br>
@@ -42,8 +47,8 @@
   </div>
 
   <script>
-    // ✅ Your Google Apps Script Web App URL
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfjDDW4XHe6dzHl8-iuB8JYEmAtPIoVBDqyYPeAs6o6Q1DEfsDHi3yio6LbW4AZsMNSg/exec";
+    // ✅ Google Apps Script Web App URL
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyyucgXDrKYYcMF9D0RRQFPDN3ejtAxJANhL-E2uUsx9C3SxYsTSqXBgUb80p7cK67-og/exec";
 
     // Menu items
     const menu = [
@@ -78,26 +83,49 @@
       updateCart();
     }
 
-    // Update cart table
+    // Update cart display
     function updateCart() {
       const tbody = document.querySelector('#cartTable tbody');
       tbody.innerHTML = '';
+
       cart.forEach(item => {
         tbody.innerHTML += `
           <tr>
             <td>${item.name}</td>
-            <td>${item.qty}</td>
+            <td>
+              <input type="number" min="1" value="${item.qty}" onchange="updateQty(${item.id}, this.value)">
+            </td>
             <td>₱${item.price * item.qty}</td>
+            <td><button class="remove-btn" onclick="removeItem(${item.id})">✖</button></td>
           </tr>
         `;
       });
+
+      const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+      document.getElementById('totalDisplay').innerText = `Total: ₱${total}`;
+    }
+
+    // Update quantity
+    function updateQty(id, qty) {
+      const item = cart.find(i => i.id === id);
+      if (item) {
+        item.qty = parseInt(qty);
+        if (item.qty <= 0) removeItem(id);
+      }
+      updateCart();
+    }
+
+    // Remove item
+    function removeItem(id) {
+      cart = cart.filter(i => i.id !== id);
+      updateCart();
     }
 
     // Place order
     function placeOrder() {
-      const name = document.getElementById('name').value;
-      const address = document.getElementById('address').value;
-      const contact = document.getElementById('contact').value;
+      const name = document.getElementById('name').value.trim();
+      const address = document.getElementById('address').value.trim();
+      const contact = document.getElementById('contact').value.trim();
 
       if (!name || !address || !contact || cart.length === 0) {
         alert("Please complete all fields and add items to cart.");
@@ -105,17 +133,16 @@
       }
 
       const orderData = {
-        name: name,
-        address: address,
-        contact: contact,
+        name,
+        address,
+        contact,
         items: cart.map(i => `${i.name} x${i.qty}`).join(', '),
         total: cart.reduce((sum, i) => sum + i.price * i.qty, 0)
       };
 
-      // Send order as JSON
       fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
-        mode: 'no-cors', // prevents CORS error
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
       })
@@ -133,3 +160,4 @@
   </script>
 </body>
 </html>
+
